@@ -76,11 +76,11 @@ Visit your deployed URL:
 
 ### 6. Enable Cron Jobs
 
-Cron jobs are automatically configured in `vercel.json` but only run on production deployments:
+Cron jobs are automatically configured in `vercel.json` to run daily at midnight UTC. **Note**: Vercel Hobby plans reject sub-daily cron schedules; the worker is configured for daily execution. For testing or demos, manually trigger the worker endpoint.
 
 1. Make sure your deployment is to a production domain
 2. Verify in Vercel Dashboard → Deployments → [Your deployment] → Functions → Cron Jobs
-3. The worker will run every minute automatically
+3. The worker will run once daily automatically
 
 To test cron manually:
 
