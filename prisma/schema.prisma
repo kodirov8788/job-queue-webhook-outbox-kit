@@ -1,0 +1,100 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model Job {
+  id          String   @id @default(cuid())
+  type        String
+  payload     Json?
+  status      JobStatus @default(PENDING)
+  attempts    Int      @default(0)
+  maxAttempts Int      @default(3)
+  runAt       DateTime @default(now())
+  lockedAt    DateTime?
+  lastError   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([status, runAt])
+  @@index([type])
+}
+
+enum JobStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  DEAD
+}
+
+model WebhookEndpoint {
+  id          String   @id @default(cuid())
+  url         String
+  description String?
+  secret      String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  outboxItems WebhookOutbox[]
+
+  @@index([isActive])
+}
+
+model WebhookOutbox {
+  id            String        @id @default(cuid())
+  endpointId    String
+  eventType     String
+  payload       Json
+  status        OutboxStatus  @default(PENDING)
+  attempts      Int           @default(0)
+  maxAttempts   Int           @default(5)
+  nextAttemptAt DateTime      @default(now())
+  lastStatusCode Int?
+  lastError     String?
+  deliveredAt   DateTime?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  endpoint      WebhookEndpoint @relation(fields: [endpointId], references: [id], onDelete: Cascade)
+  deliveries    WebhookDelivery[]
+
+  @@index([status, nextAttemptAt])
+  @@index([endpointId])
+}
+
+enum OutboxStatus {
+  PENDING
+  DELIVERING
+  DELIVERED
+  FAILED
+  DEAD
+}
+
+model WebhookDelivery {
+  id           String   @id @default(cuid())
+  outboxId     String
+  attempt      Int
+  statusCode   Int?
+  responseBody String?
+  createdAt    DateTime @default(now())
+
+  outbox       WebhookOutbox @relation(fields: [outboxId], references: [id], onDelete: Cascade)
+
+  @@index([outboxId])
+}
+
+model DemoReceivedEvent {
+  id        String   @id @default(cuid())
+  eventType String
+  payload   Json
+  signature String
+  timestamp String
+  verified  Boolean
+  createdAt DateTime @default(now())
+}
