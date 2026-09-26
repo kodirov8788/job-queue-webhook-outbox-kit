@@ -1,0 +1,365 @@
+# Job Queue + Webhook Outbox Kit - API Examples
+# Use with VSCode REST Client extension or similar
+
+@baseUrl = http://localhost:3000
+@cronSecret = dev-secret
+
+### Health Check
+GET {{baseUrl}}/api/health
+
+### ============================
+### JOB QUEUE ENDPOINTS
+### ============================
+
+### Enqueue a simple job
+POST {{baseUrl}}/api/jobs
+Content-Type: application/json
+
+{
+  "type": "test",
+  "payload": {
+    "message": "Hello from API test",
+    "timestamp": "2024-01-01T00:00:00Z"
+  }
+}
+
+### Enqueue a job with custom max attempts
+POST {{baseUrl}}/api/jobs
+Content-Type: application/json
+
+{
+  "type": "email",
+  "payload": {
+    "to": "user@example.com",
+    "subject": "Welcome",
+    "body": "Welcome to our platform!"
+  },
+  "maxAttempts": 5
+}
+
+### Enqueue a scheduled job (run 1 hour from now)
+POST {{baseUrl}}/api/jobs
+Content-Type: application/json
+
+{
+  "type": "reminder",
+  "payload": {
+    "userId": "123",
+    "message": "Time to check your inbox"
+  },
+  "runAt": "{{$datetime iso8601 3600}}",
+  "maxAttempts": 3
+}
+
+### List all jobs
+GET {{baseUrl}}/api/jobs
+
+### List jobs with filters
+GET {{baseUrl}}/api/jobs?limit=20&status=PENDING
+
+### Get specific job details
+# Replace with actual job ID
+GET {{baseUrl}}/api/jobs/clx1234567890
+
+### ============================
+### WEBHOOK ENDPOINTS
+### ============================
+
+### Register a webhook endpoint
+POST {{baseUrl}}/api/webhooks/endpoints
+Content-Type: application/json
+
+{
+  "url": "{{baseUrl}}/api/demo/receiver",
+  "description": "Demo receiver for testing"
+}
+
+### Register external webhook endpoint
+POST {{baseUrl}}/api/webhooks/endpoints
+Content-Type: application/json
+
+{
+  "url": "https://webhook.site/unique-id",
+  "description": "External test endpoint"
+}
+
+### Register endpoint with custom secret
+POST {{baseUrl}}/api/webhooks/endpoints
+Content-Type: application/json
+
+{
+  "url": "https://api.example.com/webhook",
+  "description": "Production webhook",
+  "secret": "custom-secret-for-this-endpoint"
+}
+
+### List all webhook endpoints
+GET {{baseUrl}}/api/webhooks/endpoints
+
+### ============================
+### WEBHOOK OUTBOX
+### ============================
+
+### Enqueue webhook event
+# Replace endpointId with actual ID from endpoints list
+POST {{baseUrl}}/api/webhooks/outbox
+Content-Type: application/json
+
+{
+  "endpointId": "clx1234567890",
+  "eventType": "user.created",
+  "payload": {
+    "userId": "user_abc123",
+    "email": "newuser@example.com",
+    "name": "John Doe",
+    "createdAt": "{{$datetime iso8601}}"
+  }
+}
+
+### Enqueue order completed event
+POST {{baseUrl}}/api/webhooks/outbox
+Content-Type: application/json
+
+{
+  "endpointId": "clx1234567890",
+  "eventType": "order.completed",
+  "payload": {
+    "orderId": "order_xyz789",
+    "amount": 99.99,
+    "currency": "USD",
+    "items": [
+      { "id": "item_1", "quantity": 2 },
+      { "id": "item_2", "quantity": 1 }
+    ]
+  },
+  "maxAttempts": 5
+}
+
+### List all outbox items
+GET {{baseUrl}}/api/webhooks/outbox
+
+### List outbox with filters
+GET {{baseUrl}}/api/webhooks/outbox?limit=20&status=PENDING
+
+### List outbox for specific endpoint
+GET {{baseUrl}}/api/webhooks/outbox?endpointId=clx1234567890
+
+### ============================
+### WORKER ENDPOINT
+### ============================
+
+### Process jobs and webhooks (manual trigger)
+POST {{baseUrl}}/api/worker/tick
+Content-Type: application/json
+x-cron-secret: {{cronSecret}}
+
+### Alternative: using Bearer token
+POST {{baseUrl}}/api/worker/tick
+Content-Type: application/json
+Authorization: Bearer {{cronSecret}}
+
+### ============================
+### DEMO RECEIVER
+### ============================
+
+### Send test webhook to demo receiver
+POST {{baseUrl}}/api/demo/receiver
+Content-Type: application/json
+X-Webhook-Signature: 5d41402abc4b2a76b9719d911017c592
+X-Webhook-Timestamp: {{$datetime iso8601}}
+X-Webhook-Event-Type: test.event
+
+{
+  "test": "data",
+  "message": "This is a test webhook"
+}
+
+### List received events
+GET {{baseUrl}}/api/demo/receiver
+
+### ============================
+### COMPLETE WORKFLOW EXAMPLE
+### ============================
+
+### Step 1: Health check
+GET {{baseUrl}}/api/health
+
+### Step 2: Enqueue a test job
+POST {{baseUrl}}/api/jobs
+Content-Type: application/json
+
+{
+  "type": "test",
+  "payload": {
+    "workflow": "complete-demo"
+  }
+}
+
+### Step 3: Register demo endpoint
+POST {{baseUrl}}/api/webhooks/endpoints
+Content-Type: application/json
+
+{
+  "url": "{{baseUrl}}/api/demo/receiver",
+  "description": "Complete workflow demo"
+}
+
+### Step 4: Get endpoint ID from response above, then enqueue webhook
+# Replace endpointId with actual ID
+POST {{baseUrl}}/api/webhooks/outbox
+Content-Type: application/json
+
+{
+  "endpointId": "YOUR_ENDPOINT_ID_HERE",
+  "eventType": "workflow.test",
+  "payload": {
+    "workflowId": "demo-001",
+    "status": "testing"
+  }
+}
+
+### Step 5: Run worker to process everything
+POST {{baseUrl}}/api/worker/tick
+Content-Type: application/json
+x-cron-secret: {{cronSecret}}
+
+### Step 6: Check results
+GET {{baseUrl}}/api/jobs
+###
+GET {{baseUrl}}/api/webhooks/outbox
+###
+GET {{baseUrl}}/api/demo/receiver
+
+### ============================
+### ERROR CASES
+### ============================
+
+### Invalid job (missing type)
+POST {{baseUrl}}/api/jobs
+Content-Type: application/json
+
+{
+  "payload": {
+    "some": "data"
+  }
+}
+
+### Invalid webhook endpoint (missing URL)
+POST {{baseUrl}}/api/webhooks/endpoints
+Content-Type: application/json
+
+{
+  "description": "Missing URL"
+}
+
+### Invalid webhook endpoint (bad URL)
+POST {{baseUrl}}/api/webhooks/endpoints
+Content-Type: application/json
+
+{
+  "url": "not-a-valid-url",
+  "description": "Invalid URL"
+}
+
+### Webhook for non-existent endpoint
+POST {{baseUrl}}/api/webhooks/outbox
+Content-Type: application/json
+
+{
+  "endpointId": "non-existent-id",
+  "eventType": "test",
+  "payload": {}
+}
+
+### Worker without auth
+POST {{baseUrl}}/api/worker/tick
+Content-Type: application/json
+
+### ============================
+### STRESS TESTING
+### ============================
+
+### Enqueue multiple jobs rapidly
+POST {{baseUrl}}/api/jobs
+Content-Type: application/json
+
+{
+  "type": "stress_test",
+  "payload": { "batch": 1 }
+}
+
+###
+POST {{baseUrl}}/api/jobs
+Content-Type: application/json
+
+{
+  "type": "stress_test",
+  "payload": { "batch": 2 }
+}
+
+###
+POST {{baseUrl}}/api/jobs
+Content-Type: application/json
+
+{
+  "type": "stress_test",
+  "payload": { "batch": 3 }
+}
+
+### ============================
+### PRODUCTION EXAMPLES
+### ============================
+
+### User registration webhook
+POST {{baseUrl}}/api/webhooks/outbox
+Content-Type: application/json
+
+{
+  "endpointId": "prod_endpoint_id",
+  "eventType": "user.registered",
+  "payload": {
+    "userId": "user_abc123",
+    "email": "user@example.com",
+    "firstName": "John",
+    "lastName": "Doe",
+    "registeredAt": "{{$datetime iso8601}}",
+    "metadata": {
+      "source": "web",
+      "referrer": "google"
+    }
+  }
+}
+
+### Payment processed webhook
+POST {{baseUrl}}/api/webhooks/outbox
+Content-Type: application/json
+
+{
+  "endpointId": "prod_endpoint_id",
+  "eventType": "payment.processed",
+  "payload": {
+    "paymentId": "pay_xyz789",
+    "amount": 149.99,
+    "currency": "USD",
+    "customerId": "cus_123",
+    "status": "succeeded",
+    "processedAt": "{{$datetime iso8601}}"
+  }
+}
+
+### Subscription created webhook
+POST {{baseUrl}}/api/webhooks/outbox
+Content-Type: application/json
+
+{
+  "endpointId": "prod_endpoint_id",
+  "eventType": "subscription.created",
+  "payload": {
+    "subscriptionId": "sub_abc456",
+    "customerId": "cus_123",
+    "plan": "premium",
+    "status": "active",
+    "currentPeriodStart": "{{$datetime iso8601}}",
+    "currentPeriodEnd": "{{$datetime iso8601 2592000}}"
+  }
+}
