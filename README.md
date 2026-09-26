@@ -331,7 +331,7 @@ The dashboard shows:
 - Registered endpoints
 - Received events at the demo receiver
 
-In production, the worker runs automatically every minute via Vercel Cron Jobs (see `vercel.json`).
+In production, the worker runs automatically via Vercel Cron Jobs (see `vercel.json`). **Note**: Vercel Hobby plans only support daily cron schedules; for demos, manually call `/api/worker/tick` to process items immediately.
 
 ## Extending Job Types
 
